@@ -1,0 +1,71 @@
+===============Autoconfig fails while running adgendbc.sh (Doc ID 340354.1)=================
+
+CAUSE
+The TNS connect descriptor information is now held in the Database (since ADX.E) so just changing
+the information in the XML file and running AutoConfig is no longer sufficient to do this. The
+Net Services Data Model needs to be purged so that the correct information and parameters can be
+loaded via AutoConfig.
+
+This is explained in Bug 4398427 - 'ERROR 'INVALID NUMBER FORMAT FOR PORT NUMBER'WHEN ADGENDBC.SH'.
+
+.
+
+SOLUTION
+Follow these steps to fix the failure :
+
+1.) If the hostfile name references are not changed yet in the Contextfile, then use the
+script adgentns.pl to make the necessary TNS changes.
+
+1.a) If the hostfile name references in the Contextfile have been changed already, it is not possible to use the script adgentns.pl to make the necessary TNS changes and you will have to do this manually :
+
+1.a.1) Change the s_contextname and the actual Context filename to reflect the new hostname.
+
+
+Change this line :
+
+<oa_context_name oa_var="s_contextname"><SID>_<old Hostname> </oa_context_name>
+
+to:
+
+<oa_context_name oa_var="s_contextname"><SID>_<new Hostname> </oa_context_name>
+Change this line :
+
+<oa_context_file_loc oa_var="s_contextfile"><physical PATH of $APPL_TOP/admin/<SID>_<old Hostname>.xml></oa_context_file_loc>
+
+to:
+
+<oa_context_file_loc oa_var="s_contextfile"><physical PATH of $APPL_TOP/admin/<SID>_<new Hostname>.xml></oa_context_file_loc>
+
+
+
+Please be aware :
+
+If you are working with virtual hostnames, you need to modify the hostnames in the context to the virtual hostnames.
+
+
+1.a.2) Save the changes and exit the .xml file. Then it is needed to rename the Context file in a new shell, where the APPS Environment is sourced :
+
+
+cd $APPL_TOP/admin
+mv <SID>_<old Hostname>.xml <SID>_<new Hostname>.xml
+
+3. Login to sqlplus apps/apps
+
+4. Purge the model as follows:
+
+4.1 Identify the current Database name
+
+select DB_NAME from FND_DATABASES;
+4.2 Purge the Database name from the Instance
+
+slplus apps/<Password>
+
+begin
+FND_NET_SERVICES.remove_system(<DB_NAME from select above>);
+end;
+/
+commit;
+
+5. Run AutoConfig on the DB Tier first, (check the NetServiceHandler.log to ensure the tables are repopulated)
+
+6. Run AutoConfig on the Apps Tier (check the NetServiceHandler.log to ensure the tables are repopulated)
