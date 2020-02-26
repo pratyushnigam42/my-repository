@@ -1,0 +1,122 @@
+SELECT service_id, service_handle, developer_parameters
+FROM fnd_cp_services
+WHERE service_id = (SELECT manager_type
+FROM fnd_concurrent_queues
+WHERE concurrent_queue_name = 'FNDCPOPP');SERVICE_ID SERVICE_HANDLE;
+
+
+UPDATE fnd_cp_services
+SET developer_parameters =
+‘J:oracle.apps.fnd.cp.gsf.GSMServiceController:-mx1024m’
+WHERE service_id = (SELECT manager_type
+FROM fnd_concurrent_queues
+WHERE concurrent_queue_name = 'FNDCPOPP’)'
+
+====================find the opp request logs==============================
+
+SELECT fcpp.concurrent_request_id req_id, fcp.node_name, fcp.logfile_name
+FROM fnd_conc_pp_actions fcpp, fnd_concurrent_processes fcp
+WHERE fcpp.processor_id = fcp.concurrent_process_id
+AND fcpp.action_type = 6
+AND fcpp.concurrent_request_id = &&request_id;
+
+
+How to get OPP manager log file location?
+
+$APPLCSF/log/<SID>/FNDOPP####.txt       OR
+1,System Administrator > Concurrent > Manager > Administer
+2,Search for ‘Output Post Processor’
+3,Click the ‘Processes’ button .
+4,Click the Manager Log button. This will open the ‘OPP’
+Upload the OPP log file.
+
+
+
+OPP Issue while generating the XML Output in apps 11i
+
+Problem Description:
+1, Few XML type concurrent programs taking long time and completed with warning OPP log file registered below error
+Caused by: java.lang.ThreadDeath
+2, CPU utilization taking 100% constantly while running the concurrent programs.
+
+Cause
+The java.lang.ThreadDeath error indicates that the Output Post Processor has reached its processing timeout.
+
+Solution
+The following configuration changes are recommended to optimize the environment for these type of reports:
+1. Increase the value of the Concurrent: OPP Timeout profile option to 10800 seconds.
+
+2. Enable the scalability feature of XML Publisher:
+
+1. Login as SYSADMIN
+2. Responsibility: XML Publisher Administrator
+3. Function: Administration
+4. Set the following properties:
+5. Temporary Directory
+6. Use XML Publisher’s XSLT processor: True
+7. Enable scalable feature of XSLT processor: True   — By default it’s false
+8. Enable XSLT runtime optimization: True
+
+> After changing the value also the problem still exist. As per the SR suggestion, we increased the java heap size from 1024M to 2048M.
+
+a. Bring down the concurrent managers.
+
+b. Use the Update statement below, for example:
+update FND_CP_SERVICES
+set DEVELOPER_PARAMETERS =
+‘J:oracle.apps.fnd.cp.gsf.GSMServiceController:-mx2048m’
+where SERVICE_ID = (select MANAGER_TYPE from FND_CONCURRENT_QUEUES
+where CONCURRENT_QUEUE_NAME = ‘FNDCPOPP’);
+
+c. Bring concurrent managers up again
+
+Please check below note’s from oracle support
+
+427233.1  :Output Post Processing Fails Due To java.lang.ThreadDeath
+1268217.1: Output Post Processor (OPP) Log Contains Error “java.lang.OutOfMemoryError: Java heap space”
+1266368.1: Output Post Processor (OPP) Log Contains Error   “java.lang.OutOfMemoryError”
+978495.1: Why Does OPP Intermittently Completes With Warnings and Error ‘java.lang.OutOfMemoryError’?
+352518.1 :Concurrent Requests Fail Due to Output Post Processing (OPP) Timeout
+364547.1 :Troubleshooting Oracle XML Publisher For The Oracle E-Business Suite
+
+
+
+Then:
+1. Login to Apps with sysadmin responsibility
+2. Navigate to: Concurrent -> Managers -> Define
+3. Query for
+Manager = ‘Output Post Processor%’
+or Short Name = FNDCPOPP
+4. Check the checkbox “Enable” .
+5. Click on ‘Work Shifts button
+6. see Work Shift of the OPP and
+Set Processes = 1
+and Parameters = oracle.apps.fnd.cp.opp.OPPServiceThread:2:0:max_threads=5
+and Sleep Second = 30
+7. Save
+
+
+
+
+How to start the Output Post Processing (OPP) in 11i
+At least one OPP process active in the system. The concurrent processing uses the Output Post Processor (OPP) to enforce post-processing actions for concurrent requests. For example, post-processing action is that used in publishing concurrent requests with XML Publisher.
+
+Actually when you have submit a request with XML Publisher template specified as a layout for the concurrent request output. Once finishes the concurrent manager concurrent program, it will contact the OPP to apply the XML Publisher template and create the final output
+
+To activate the OPP follow these setps
+
+The Profile Option "Concurrent: GSM Enabled" must be set to Y
+
+Then:
+1. Login to Apps with sysadmin responsibility
+2. Navigate to: Concurrent -> Managers -> Define
+3. Query for
+Manager = 'Output Post Processor%'
+or Short Name = FNDCPOPP
+4. Check the checkbox "Enable" .
+5. Click on 'Work Shifts button
+6. see Work Shift of the OPP and
+Set Processes = 1
+and Parameters = oracle.apps.fnd.cp.opp.OPPServiceThread:2:0:max_threads=5
+and Sleep Second = 30
+7. Save
